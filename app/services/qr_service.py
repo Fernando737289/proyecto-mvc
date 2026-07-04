@@ -3,50 +3,37 @@ from io import BytesIO
 import base64
 
 from fastapi import HTTPException
-from app.core.database import get_connection
+
+from app.repository.qr_repository import (
+    get_persona_by_rut
+)
 
 
-def get_persona_by_rut(rut: str):
-    
+def get_persona_by_rut_service(rut: str):
+
     try:
-        
-        conexion = get_connection()
-        
-        cursor = conexion.cursor(dictionary=True)
-        
-        query = """
-            SELECT
-                id_persona,
-                rut,
-                nombres,
-                apellidos,
-                telefono
-            FROM persona
-            WHERE rut = %s
-        """
-        
-        cursor.execute(query, (rut,))
-        
-        persona = cursor.fetchone()
-        
-        
+
+        persona = get_persona_by_rut(rut)
+
         if not persona:
+
             raise HTTPException(
                 status_code=404,
                 detail="Persona no encontrada"
             )
-        
+
         return persona
-    
+
     except HTTPException:
         raise
-    
+
     except Exception:
-        
+
         raise HTTPException(
             status_code=500,
             detail="Error al buscar persona"
         )
+
 
 
 def generar_qr(persona):
