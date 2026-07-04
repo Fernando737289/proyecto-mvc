@@ -1,5 +1,4 @@
 import os
-from pydantic import BaseModel
 import httpx
 from fastapi import HTTPException, status
 from dotenv import load_dotenv

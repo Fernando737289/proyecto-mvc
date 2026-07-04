@@ -1,245 +1,145 @@
-from app.core.encryption import encrypt_data
-from app.core.database import get_connection
 from fastapi import HTTPException
+
+from app.core.encryption import encrypt_data
+
+from app.repository.user_repository import (
+    existe_usuario_por_rut,
+    insertar_usuario,
+    obtener_personas,
+    update_user_repository,
+    delete_user_repository,
+    update_estado_persona_repository
+    
+)
+
 from app.services.dec_services import validar_vigencia_rut
 
 async def create_user(user):
-    try:
-        
-        resultado_dec = await validar_vigencia_rut(
-            user_rut=user.rut,
-            serial_number=user.serial_number  
-        )
-        
-       
-        if not resultado_dec or resultado_dec.get("status") != 200:
-            raise HTTPException(
-                status_code=400, 
-                detail="No se pudo verificar la cédula con el servicio externo."
-            )
-            
-        result_data = resultado_dec.get("result", {})
-        if result_data.get("Verificacion") != "V":
-            raise HTTPException(
-                status_code=400, 
-                detail="La cédula de identidad no se encuentra vigente en el Registro Civil."
-            )
-    
-        conexion = get_connection()
-        
-        cursor = conexion.cursor(dictionary=True)
-        
-        cursor.execute(
-            """
-            SELECT id_persona
-            FROM persona
-            WHERE rut = %s
-            """,
-            (user.rut,)
-        )
 
-        if cursor.fetchone():
+    resultado_dec = await validar_vigencia_rut(
+        user_rut=user.rut,
+        serial_number=user.serial_number
+    )
 
-            raise HTTPException(
-                status_code=400,
-                detail="Ya existe una persona registrada con ese RUT"
-            )
-        
-        query = """
-            INSERT INTO persona (
-                rut,
-                serial_number,
-                nombres,
-                apellidos,
-                direccion,
-                numero_direccion,
-                telefono,
-                email,
-                fecha_nacimiento
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        
-        serial_encriptado = encrypt_data(
-            user.serial_number
-        )
-        
-        values = (
-            user.rut,
-            serial_encriptado,
-            user.nombres,
-            user.apellidos,
-            user.direccion,
-            user.numero_direccion,
-            user.telefono,
-            user.email,
-            user.fecha_nacimiento
-        )
-        
-        cursor.execute(query, values)
-        
-        conexion.commit()
-        
-        return {"status": "success", "message": "Persona creada exitosamente tras validación de cédula."}
-        
-    except HTTPException as http_err:
-        
-        raise http_err
-    except Exception as e:
+    if not resultado_dec or resultado_dec.get("status") != 200:
+
         raise HTTPException(
-            status_code=500, 
-            detail=f"Error interno al registrar en la base de datos: {str(e)}"
+            status_code=400,
+            detail="No se pudo verificar la cédula con el servicio externo."
         )
-    finally:
 
-        if 'cursor' in locals(): cursor.close()
-        if 'conexion' in locals(): conexion.close()
+    result_data = resultado_dec.get("result", {})
 
+    if result_data.get("Verificacion") != "V":
+
+        raise HTTPException(
+            status_code=400,
+            detail="La cédula de identidad no se encuentra vigente."
+        )
+
+    if existe_usuario_por_rut(user.rut):
+
+        raise HTTPException(
+            status_code=400,
+            detail="Ya existe una persona registrada con ese RUT"
+        )
+
+    serial_encriptado = encrypt_data(
+        user.serial_number
+    )
+
+    values = (
+
+        user.rut,
+        serial_encriptado,
+        user.nombres,
+        user.apellidos,
+        user.direccion,
+        user.numero_direccion,
+        user.telefono,
+        user.email,
+        user.fecha_nacimiento
+
+    )
+
+    insertar_usuario(values)
+
+    return {
+        "status": "success",
+        "message": "Persona creada exitosamente tras validación de cédula."
+    }
 
 def list_users():
-    
+
     try:
-    
-        conexion = get_connection()
-    
-        cursor = conexion.cursor(dictionary=True)
-    
-        query = """
-            SELECT
-                id_persona,
-                rut,
-                nombres,
-                apellidos,
-                direccion,
-                numero_direccion,
-                telefono,
-                email,
-                fecha_nacimiento,
-                estado,
-                fecha_creacion
-            FROM persona
-        """
-    
-        cursor.execute(query)
-    
-        resultado = cursor.fetchall()
-    
-        cursor.close()
-        conexion.close()
-    
-        return resultado
-    
+
+        return obtener_personas()
+
     except Exception:
-        
+
         raise HTTPException(
-            status_code = 500,
-            detail = "Error al obtener personas"
+            status_code=500,
+            detail="Error al obtener personas"
         )
 
     
 def update_user(id_persona, user):
-    
+
     try:
-        
-        conexion = get_connection()
-    
-        cursor = conexion.cursor(dictionary=True)
-        
-        query = """
-            UPDATE persona
-            SET
-                rut = %s,
-                nombres = %s,
-                apellidos = %s,
-                direccion = %s,
-                numero_direccion = %s,
-                telefono = %s,
-                email = %s,
-                fecha_nacimiento = %s
-            WHERE id_persona = %s
-        """
-        
-        values = (
-            user.rut,
-            user.nombres,
-            user.apellidos,
-            user.direccion,
-            user.numero_direccion,
-            user.telefono,
-            user.email,
-            user.fecha_nacimiento,
-            id_persona
+
+        filas = update_user_repository(
+            id_persona,
+            user
         )
-        
-        cursor.execute(query, values)
-        
-        conexion.commit()
-        
-        if cursor.rowcount == 0:
-            
+
+        if filas == 0:
+
             raise HTTPException(
-                status_code = 404,
-                detail = "Usuario no encontrado"
+                status_code=404,
+                detail="Usuario no encontrado"
             )
-        
-        cursor.close()
-        conexion.close()
-        
+
         return {
             "mensaje": "Usuario actualizado correctamente"
         }
-    
+
     except HTTPException:
         raise
-    
-    except Exception:
-        
-        raise HTTPException(
-            status_code = 500,
-            detail = "Error al actualizar usuario"
-        )
 
+    except Exception:
+
+        raise HTTPException(
+            status_code=500,
+            detail="Error al actualizar usuario"
+        )
      
 def delete_user(id_persona):
-    
+
     try:
 
-        conexion = get_connection()
-    
-        cursor = conexion.cursor(dictionary=True)
-        
-        query = """
-            DELETE FROM persona
-            WHERE id_persona = %s
-        """
-        
-        cursor.execute(query, (id_persona,))
-        
-        conexion.commit()
-        
-        if cursor.rowcount == 0:
-            
+        filas = delete_user_repository(id_persona)
+
+        if filas == 0:
+
             raise HTTPException(
-                status_code = 404,
-                detail = "Usuario no encontrado"
+                status_code=404,
+                detail="Usuario no encontrado"
             )
-            
-        cursor.close()
-        conexion.close()
-        
+
         return {
             "mensaje": "Usuario eliminado correctamente"
         }
-        
+
     except HTTPException:
         raise
-    
+
     except Exception:
-        
+
         raise HTTPException(
-            status_code = 500,
-            detail = "Error al eliminar usuario"
+            status_code=500,
+            detail="Error al eliminar usuario"
         )
+
     
 def update_estado_persona(
     id_persona: int,
@@ -255,35 +155,17 @@ def update_estado_persona(
                 detail="Estado inválido"
             )
 
-        conexion = get_connection()
-
-        cursor = conexion.cursor(dictionary=True)
-
-        query = """
-            UPDATE persona
-            SET estado = %s
-            WHERE id_persona = %s
-        """
-
-        cursor.execute(
-            query,
-            (
-                estado,
-                id_persona
-            )
+        filas = update_estado_persona_repository(
+            id_persona,
+            estado
         )
 
-        conexion.commit()
-
-        if cursor.rowcount == 0:
+        if filas == 0:
 
             raise HTTPException(
                 status_code=404,
                 detail="Persona no encontrada"
             )
-
-        cursor.close()
-        conexion.close()
 
         return {
             "mensaje": f"Persona {estado} correctamente"
@@ -297,4 +179,4 @@ def update_estado_persona(
         raise HTTPException(
             status_code=500,
             detail="Error al actualizar estado"
-        )       
+        )
