@@ -1,71 +1,39 @@
 from fastapi import HTTPException
-from app.core.database import get_connection
 
+from app.repository.auditoria_repository import (
+    registrar_auditoria,
+    obtener_auditoria
+)
 
-def registrar_auditoria(
+def crear_auditoria(
     tabla_afectada: str,
     accion_realizada: str,
     descripcion: str,
     usuario_accion: str
 ):
 
-    conexion = get_connection()
+    try:
 
-    cursor = conexion.cursor()
-
-    query = """
-        INSERT INTO auditoria(
+        registrar_auditoria(
             tabla_afectada,
             accion_realizada,
             descripcion,
             usuario_accion
         )
-        VALUES(%s,%s,%s,%s)
-    """
 
-    cursor.execute(
-        query,
-        (
-            tabla_afectada,
-            accion_realizada,
-            descripcion,
-            usuario_accion
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al registrar auditoría: {str(e)}"
         )
-    )
 
-    conexion.commit()
-
-    cursor.close()
-    conexion.close()
-    
 
 def list_auditoria():
 
     try:
 
-        conexion = get_connection()
-
-        cursor = conexion.cursor(dictionary=True)
-
-        query = """
-            SELECT
-                tabla_afectada,
-                accion_realizada,
-                descripcion,
-                usuario_accion,
-                fecha_accion
-            FROM auditoria
-            ORDER BY fecha_accion DESC
-        """
-
-        cursor.execute(query)
-
-        resultado = cursor.fetchall()
-
-        cursor.close()
-        conexion.close()
-
-        return resultado
+        return obtener_auditoria()
 
     except Exception:
 
