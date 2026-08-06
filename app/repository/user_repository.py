@@ -1,157 +1,118 @@
-from app.core.database import get_connection
+from sqlalchemy import select
+
+from app.core.database import SessionLocal
+from app.models.orm import Persona
 
 
 def existe_usuario_por_rut(rut: str):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
     try:
 
-        cursor.execute(
-            """
-            SELECT id_persona
-            FROM persona
-            WHERE rut = %s
-            """,
-            (rut,)
+        return session.execute(
+            select(Persona.id_persona).where(Persona.rut == rut)
+        ).scalar_one_or_none()
+
+    finally:
+        session.close()
+
+
+def insertar_usuario(
+    rut,
+    serial_number,
+    nombres,
+    apellidos,
+    direccion,
+    numero_direccion,
+    telefono,
+    email,
+    fecha_nacimiento
+):
+
+    session = SessionLocal()
+
+    try:
+
+        persona = Persona(
+            rut=rut,
+            serial_number=serial_number,
+            nombres=nombres,
+            apellidos=apellidos,
+            direccion=direccion,
+            numero_direccion=numero_direccion,
+            telefono=telefono,
+            email=email,
+            fecha_nacimiento=fecha_nacimiento
         )
 
-        return cursor.fetchone()
+        session.add(persona)
+        session.commit()
 
     finally:
-
-        cursor.close()
-        conexion.close()
-
-
-def insertar_usuario(values):
-
-    conexion = get_connection()
-    cursor = conexion.cursor()
-
-    try:
-
-        query = """
-            INSERT INTO persona (
-                rut,
-                serial_number,
-                nombres,
-                apellidos,
-                direccion,
-                numero_direccion,
-                telefono,
-                email,
-                fecha_nacimiento
-            )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """
-
-        cursor.execute(query, values)
-
-        conexion.commit()
-
-    finally:
-
-        cursor.close()
-        conexion.close()
+        session.close()
 
 
 def obtener_personas():
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
     try:
 
-        cursor.execute(
-            """
-            SELECT
-                id_persona,
-                rut,
-                nombres,
-                apellidos,
-                direccion,
-                numero_direccion,
-                telefono,
-                email,
-                fecha_nacimiento,
-                estado,
-                fecha_creacion
-            FROM persona
-            """
-        )
-
-        return cursor.fetchall()
+        return session.execute(
+            select(Persona)
+        ).scalars().all()
 
     finally:
+        session.close()
 
-        cursor.close()
-        conexion.close()
-        
+
 def update_user_repository(id_persona, user):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    query = """
-        UPDATE persona
-        SET
-            rut = %s,
-            nombres = %s,
-            apellidos = %s,
-            direccion = %s,
-            numero_direccion = %s,
-            telefono = %s,
-            email = %s,
-            fecha_nacimiento = %s
-        WHERE id_persona = %s
-    """
+    try:
 
-    values = (
-        user.rut,
-        user.nombres,
-        user.apellidos,
-        user.direccion,
-        user.numero_direccion,
-        user.telefono,
-        user.email,
-        user.fecha_nacimiento,
-        id_persona
-    )
+        persona = session.get(Persona, id_persona)
 
-    cursor.execute(query, values)
-    conexion.commit()
+        if not persona:
+            return 0
 
-    filas = cursor.rowcount
+        persona.rut = user.rut
+        persona.nombres = user.nombres
+        persona.apellidos = user.apellidos
+        persona.direccion = user.direccion
+        persona.numero_direccion = user.numero_direccion
+        persona.telefono = user.telefono
+        persona.email = user.email
+        persona.fecha_nacimiento = user.fecha_nacimiento
 
-    cursor.close()
-    conexion.close()
+        session.commit()
 
-    return filas
+        return 1
+
+    finally:
+        session.close()
 
 
 def delete_user_repository(id_persona):
 
-    conexion = get_connection()
-    cursor = conexion.cursor()
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        DELETE FROM persona
-        WHERE id_persona = %s
-        """,
-        (id_persona,)
-    )
+    try:
 
-    conexion.commit()
+        persona = session.get(Persona, id_persona)
 
-    filas = cursor.rowcount
+        if not persona:
+            return 0
 
-    cursor.close()
-    conexion.close()
+        session.delete(persona)
+        session.commit()
 
-    return filas
+        return 1
+
+    finally:
+        session.close()
 
 
 def update_estado_persona_repository(
@@ -159,26 +120,20 @@ def update_estado_persona_repository(
     estado
 ):
 
-    conexion = get_connection()
-    cursor = conexion.cursor()
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        UPDATE persona
-        SET estado = %s
-        WHERE id_persona = %s
-        """,
-        (
-            estado,
-            id_persona
-        )
-    )
+    try:
 
-    conexion.commit()
+        persona = session.get(Persona, id_persona)
 
-    filas = cursor.rowcount
+        if not persona:
+            return 0
 
-    cursor.close()
-    conexion.close()
+        persona.estado = estado
 
-    return filas
+        session.commit()
+
+        return 1
+
+    finally:
+        session.close()

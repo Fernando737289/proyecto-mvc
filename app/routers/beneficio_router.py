@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.models.beneficio_model import Beneficio
+from app.models.schemas import BeneficioOut
 from app.services.beneficio_service import (
     create_beneficio,
     list_beneficios,
@@ -22,7 +23,7 @@ def crear_beneficio(
 
     return create_beneficio(data)
 
-@router.get("/")
+@router.get("/", response_model=list[BeneficioOut])
 def obtener_beneficios():
 
     return list_beneficios()

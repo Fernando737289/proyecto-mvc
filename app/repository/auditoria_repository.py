@@ -1,4 +1,7 @@
-from app.core.database import get_connection
+from sqlalchemy import select
+
+from app.core.database import SessionLocal
+from app.models.orm import Auditoria
 
 
 def registrar_auditoria(
@@ -8,54 +11,33 @@ def registrar_auditoria(
     usuario_accion: str
 ):
 
-    conexion = get_connection()
-    cursor = conexion.cursor()
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        INSERT INTO auditoria(
-            tabla_afectada,
-            accion_realizada,
-            descripcion,
-            usuario_accion
+    try:
+
+        auditoria = Auditoria(
+            tabla_afectada=tabla_afectada,
+            accion_realizada=accion_realizada,
+            descripcion=descripcion,
+            usuario_accion=usuario_accion
         )
-        VALUES(%s,%s,%s,%s)
-        """,
-        (
-            tabla_afectada,
-            accion_realizada,
-            descripcion,
-            usuario_accion
-        )
-    )
 
-    conexion.commit()
+        session.add(auditoria)
+        session.commit()
 
-    cursor.close()
-    conexion.close()
+    finally:
+        session.close()
 
 
 def obtener_auditoria():
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        SELECT
-            tabla_afectada,
-            accion_realizada,
-            descripcion,
-            usuario_accion,
-            fecha_accion
-        FROM auditoria
-        ORDER BY fecha_accion DESC
-        """
-    )
+    try:
 
-    resultado = cursor.fetchall()
+        return session.execute(
+            select(Auditoria).order_by(Auditoria.fecha_accion.desc())
+        ).scalars().all()
 
-    cursor.close()
-    conexion.close()
-
-    return resultado
+    finally:
+        session.close()

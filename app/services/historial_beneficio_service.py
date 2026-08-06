@@ -13,11 +13,11 @@ def get_historial_persona(id_persona: int):
 
         return [
             {
-                "beneficio": item["nombre"],
-                "fecha_uso": item["fecha_uso"],
-                "codigo_canje": item["codigo_canje"],
-                "descuento": item["valor_descuento"],
-                "comercio": item["comercio"]
+                "beneficio": item.beneficio.nombre,
+                "fecha_uso": item.fecha_uso,
+                "codigo_canje": item.codigo_canje,
+                "descuento": item.beneficio.valor_descuento,
+                "comercio": item.beneficio.comercio
             }
             for item in historial
         ]

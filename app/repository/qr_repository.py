@@ -1,28 +1,18 @@
-from app.core.database import get_connection
+from sqlalchemy import select
+
+from app.core.database import SessionLocal
+from app.models.orm import Persona
 
 
 def get_persona_by_rut(rut: str):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        SELECT
-            id_persona,
-            rut,
-            nombres,
-            apellidos,
-            telefono
-        FROM persona
-        WHERE rut = %s
-        """,
-        (rut,)
-    )
+    try:
 
-    persona = cursor.fetchone()
+        return session.execute(
+            select(Persona).where(Persona.rut == rut)
+        ).scalar_one_or_none()
 
-    cursor.close()
-    conexion.close()
-
-    return persona
+    finally:
+        session.close()

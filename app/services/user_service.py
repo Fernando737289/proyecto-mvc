@@ -48,21 +48,17 @@ async def create_user(user):
         user.serial_number
     )
 
-    values = (
-
-        user.rut,
-        serial_encriptado,
-        user.nombres,
-        user.apellidos,
-        user.direccion,
-        user.numero_direccion,
-        user.telefono,
-        user.email,
-        user.fecha_nacimiento
-
+    insertar_usuario(
+        rut=user.rut,
+        serial_number=serial_encriptado,
+        nombres=user.nombres,
+        apellidos=user.apellidos,
+        direccion=user.direccion,
+        numero_direccion=user.numero_direccion,
+        telefono=user.telefono,
+        email=user.email,
+        fecha_nacimiento=user.fecha_nacimiento
     )
-
-    insertar_usuario(values)
 
     return {
         "status": "success",

@@ -1,30 +1,18 @@
-from app.core.database import get_connection
+from sqlalchemy import select
+
+from app.core.database import SessionLocal
+from app.models.orm import Usuario
 
 
 def obtener_usuario_por_email(email: str):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        SELECT
-            id_usuario,
-            username,
-            password_hash,
-            rol,
-            estado,
-            email
-        FROM usuario
-        WHERE email = %s
-        """,
-        (email,)
-    )
-    
-    usuario = cursor.fetchone()
+    try:
 
-    cursor.close()
-    conexion.close()
+        return session.execute(
+            select(Usuario).where(Usuario.email == email)
+        ).scalar_one_or_none()
 
-
-    return usuario
+    finally:
+        session.close()

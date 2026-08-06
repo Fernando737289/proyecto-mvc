@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from app.models.user import (
     User, UpdateEstadoPersonaRequest
 )
+from app.models.schemas import PersonaOut
 from app.services.user_service import (
     create_user, list_users, update_user, delete_user, update_estado_persona
 )
@@ -13,7 +14,7 @@ router = APIRouter(
     tags=["Users"]
 )
 
-@router.get("/")
+@router.get("/", response_model=list[PersonaOut])
 def list_all_users():
     return list_users()
 

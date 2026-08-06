@@ -1,95 +1,81 @@
-from app.core.database import get_connection
+from fastapi import HTTPException
+from sqlalchemy import select
+
+from app.core.database import SessionLocal
+from app.core.generador_codigo import generar_codigo_canje
+from app.models.orm import Beneficio, HistorialBeneficio, Persona
 
 
-def obtener_conexion():
-
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
-
-    return conexion, cursor
-
-
-def obtener_persona(cursor, id_persona: int):
-
-    cursor.execute(
-        """
-        SELECT id_persona
-        FROM persona
-        WHERE id_persona = %s
-        """,
-        (id_persona,)
-    )
-
-    return cursor.fetchone()
-
-
-def obtener_beneficio(cursor, id_beneficio: int):
-
-    cursor.execute(
-        """
-        SELECT *
-        FROM beneficios
-        WHERE id_beneficio = %s
-        """,
-        (id_beneficio,)
-    )
-
-    return cursor.fetchone()
-
-
-def obtener_canje_existente(
-    cursor,
+def canjear_beneficio(
     id_persona: int,
     id_beneficio: int
 ):
 
-    cursor.execute(
-        """
-        SELECT id_historial
-        FROM historial_beneficios
-        WHERE id_persona = %s
-        AND id_beneficio = %s
-        """,
-        (
-            id_persona,
-            id_beneficio
+    session = SessionLocal()
+
+    try:
+
+        persona = session.get(Persona, id_persona)
+
+        if not persona:
+            raise HTTPException(
+                status_code=404,
+                detail="Persona no encontrada"
+            )
+
+        beneficio = session.get(Beneficio, id_beneficio)
+
+        if not beneficio:
+            raise HTTPException(
+                status_code=404,
+                detail="Beneficio no encontrado"
+            )
+
+        if beneficio.stock <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Beneficio sin stock"
+            )
+
+        canje_existente = session.execute(
+            select(HistorialBeneficio.id_historial).where(
+                HistorialBeneficio.id_persona == id_persona,
+                HistorialBeneficio.id_beneficio == id_beneficio
+            )
+        ).scalar_one_or_none()
+
+        if canje_existente:
+            raise HTTPException(
+                status_code=400,
+                detail="Este beneficio ya fue canjeado por esta persona"
+            )
+
+        beneficio.stock -= 1
+
+        codigo_canje = generar_codigo_canje()
+
+        session.add(HistorialBeneficio(
+            id_persona=id_persona,
+            id_beneficio=id_beneficio,
+            codigo_canje=codigo_canje
+        ))
+
+        session.commit()
+
+        return {
+            "mensaje": "Beneficio canjeado correctamente"
+        }
+
+    except HTTPException:
+        session.rollback()
+        raise
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
         )
-    )
 
-    return cursor.fetchone()
-
-
-def descontar_stock(cursor, id_beneficio: int):
-
-    cursor.execute(
-        """
-        UPDATE beneficios
-        SET stock = stock - 1
-        WHERE id_beneficio = %s
-        """,
-        (id_beneficio,)
-    )
-
-
-def registrar_canje(
-    cursor,
-    id_persona: int,
-    id_beneficio: int,
-    codigo_canje: str
-):
-
-    cursor.execute(
-        """
-        INSERT INTO historial_beneficios(
-            id_persona,
-            id_beneficio,
-            codigo_canje
-        )
-        VALUES(%s,%s,%s)
-        """,
-        (
-            id_persona,
-            id_beneficio,
-            codigo_canje
-        )
-    )
+    finally:
+        session.close()

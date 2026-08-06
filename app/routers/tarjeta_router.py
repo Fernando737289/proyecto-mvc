@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from app.models.tarjeta_model import CreateTarjetaRequest, UpdateTarjetaRequest
+from app.models.schemas import TarjetaOut
 from app.services.tarjeta_service import (
     create_tarjeta,
     get_tarjeta,
@@ -36,7 +37,7 @@ def crear_tarjeta(
 
     return resultado
 
-@router.get("/buscar")
+@router.get("/buscar", response_model=TarjetaOut)
 def obtener_tarjeta(
     rut: str | None = None,
     numero_tarjeta: str | None = None

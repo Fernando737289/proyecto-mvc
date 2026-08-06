@@ -1,90 +1,68 @@
-from app.core.database import get_connection
+from sqlalchemy import select
+
+from app.core.database import SessionLocal
+from app.models.orm import Beneficio
 
 
 def crear_beneficio(data):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        INSERT INTO beneficios(
-            nombre,
-            descripcion,
-            tipo_descuento,
-            valor_descuento,
-            stock,
-            fecha_inicio,
-            fecha_vencimiento,
-            comercio
+    try:
+
+        beneficio = Beneficio(
+            nombre=data.nombre,
+            descripcion=data.descripcion,
+            tipo_descuento=data.tipo_descuento,
+            valor_descuento=data.valor_descuento,
+            stock=data.stock,
+            fecha_inicio=data.fecha_inicio,
+            fecha_vencimiento=data.fecha_vencimiento,
+            comercio=data.comercio
         )
-        VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
-        """,
-        (
-            data.nombre,
-            data.descripcion,
-            data.tipo_descuento,
-            data.valor_descuento,
-            data.stock,
-            data.fecha_inicio,
-            data.fecha_vencimiento,
-            data.comercio
-        )
-    )
 
-    conexion.commit()
+        session.add(beneficio)
+        session.commit()
 
-    id_beneficio = cursor.lastrowid
+        return beneficio.id_beneficio
 
-    cursor.close()
-    conexion.close()
-
-    return id_beneficio
+    finally:
+        session.close()
 
 
 def obtener_beneficios():
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        SELECT *
-        FROM beneficios
-        WHERE estado = 'activo'
-        """
-    )
+    try:
 
-    beneficios = cursor.fetchall()
+        return session.execute(
+            select(Beneficio).where(Beneficio.estado == "activo")
+        ).scalars().all()
 
-    cursor.close()
-    conexion.close()
-
-    return beneficios
+    finally:
+        session.close()
 
 
 def eliminar_beneficio(id_beneficio: int):
 
-    conexion = get_connection()
-    cursor = conexion.cursor()
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-            DELETE beneficios
-            SET estado = 'inactivo'
-            WHERE id = %s
-        """,
-        (id_beneficio,)
-    )
+    try:
 
-    conexion.commit()
+        beneficio = session.get(Beneficio, id_beneficio)
 
-    filas_afectadas = cursor.rowcount
+        if not beneficio:
+            return 0
 
-    cursor.close()
-    conexion.close()
+        beneficio.estado = "inactivo"
 
-    return filas_afectadas
+        session.commit()
+
+        return 1
+
+    finally:
+        session.close()
 
 
 def actualizar_beneficio(
@@ -92,29 +70,21 @@ def actualizar_beneficio(
     data
 ):
 
-    conexion = get_connection()
-    cursor = conexion.cursor()
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        UPDATE beneficios
-        SET
-            nombre = %s,
-            descripcion = %s
-        WHERE id = %s
-        """,
-        (
-            data.nombre,
-            data.descripcion,
-            id_beneficio
-        )
-    )
+    try:
 
-    conexion.commit()
+        beneficio = session.get(Beneficio, id_beneficio)
 
-    filas_afectadas = cursor.rowcount
+        if not beneficio:
+            return 0
 
-    cursor.close()
-    conexion.close()
+        beneficio.nombre = data.nombre
+        beneficio.descripcion = data.descripcion
 
-    return filas_afectadas
+        session.commit()
+
+        return 1
+
+    finally:
+        session.close()

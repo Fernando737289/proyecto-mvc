@@ -39,9 +39,9 @@ def get_persona_by_rut_service(rut: str):
 def generar_qr(persona):
     
     contenido = f"""
-    Rut: {persona['rut']}
-    Nombre: {persona['nombres']}
-    Apellidos: {persona['apellidos']}
+    Rut: {persona.rut}
+    Nombre: {persona.nombres}
+    Apellidos: {persona.apellidos}
     """
     
     qr = qrcode.QRCode(

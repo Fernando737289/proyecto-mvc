@@ -1,26 +1,22 @@
-from app.core.database import get_connection
+from sqlalchemy import select
+from sqlalchemy.orm import joinedload
+
+from app.core.database import SessionLocal
+from app.models.orm import Persona, Tarjeta
 
 
 def verificar_tarjeta_existente(id_persona: int):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        SELECT id_tarjeta
-        FROM tarjeta
-        WHERE id_persona = %s
-        """,
-        (id_persona,)
-    )
+    try:
 
-    tarjeta = cursor.fetchone()
+        return session.execute(
+            select(Tarjeta.id_tarjeta).where(Tarjeta.id_persona == id_persona)
+        ).scalar_one_or_none()
 
-    cursor.close()
-    conexion.close()
-
-    return tarjeta
+    finally:
+        session.close()
 
 
 def crear_tarjeta(
@@ -32,104 +28,62 @@ def crear_tarjeta(
     estado: str
 ):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        INSERT INTO tarjeta(
-            id_persona,
-            numero_tarjeta,
-            codigo_qr,
-            fecha_emision,
-            fecha_vencimiento,
-            estado
+    try:
+
+        tarjeta = Tarjeta(
+            id_persona=id_persona,
+            numero_tarjeta=numero_tarjeta,
+            codigo_qr=codigo_qr,
+            fecha_emision=fecha_emision,
+            fecha_vencimiento=fecha_vencimiento,
+            estado=estado
         )
-        VALUES(%s,%s,%s,%s,%s,%s)
-        """,
-        (
-            id_persona,
-            numero_tarjeta,
-            codigo_qr,
-            fecha_emision,
-            fecha_vencimiento,
-            estado
-        )
-    )
 
-    conexion.commit()
+        session.add(tarjeta)
+        session.commit()
 
-    id_tarjeta = cursor.lastrowid
+        return tarjeta.id_tarjeta
 
-    cursor.close()
-    conexion.close()
+    finally:
+        session.close()
 
-    return id_tarjeta
 
 def get_tarjeta(rut=None, numero_tarjeta=None):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    query = """
-        SELECT
-            t.id_tarjeta,
-            t.numero_tarjeta,
-            t.codigo_qr,
-            t.fecha_emision,
-            t.fecha_vencimiento,
-            t.estado,
-            t.id_persona,
-            p.rut,
-            p.nombres,
-            p.apellidos,
-            p.telefono
-        FROM tarjeta t
-        INNER JOIN persona p
-            ON t.id_persona = p.id_persona
-        WHERE 1 = 1
-    """
+    try:
 
-    params = []
+        stmt = (
+            select(Tarjeta)
+            .join(Persona, Tarjeta.id_persona == Persona.id_persona)
+            .options(joinedload(Tarjeta.persona))
+        )
 
-    if rut:
-        query += " AND p.rut = %s"
-        params.append(rut)
+        if rut:
+            stmt = stmt.where(Persona.rut == rut)
 
-    if numero_tarjeta:
-        query += " AND t.numero_tarjeta = %s"
-        params.append(numero_tarjeta)
+        if numero_tarjeta:
+            stmt = stmt.where(Tarjeta.numero_tarjeta == numero_tarjeta)
 
-    cursor.execute(query, tuple(params))
+        return session.execute(stmt).scalars().first()
 
-    tarjeta = cursor.fetchone()
-
-    cursor.close()
-    conexion.close()
-
-    return tarjeta
+    finally:
+        session.close()
 
 
 def get_tarjeta_by_id(id_tarjeta):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        SELECT id_tarjeta
-        FROM tarjeta
-        WHERE id_tarjeta = %s
-        """,
-        (id_tarjeta,)
-    )
+    try:
 
-    tarjeta = cursor.fetchone()
+        return session.get(Tarjeta, id_tarjeta)
 
-    cursor.close()
-    conexion.close()
-
-    return tarjeta
+    finally:
+        session.close()
 
 
 def update_tarjeta(
@@ -138,68 +92,53 @@ def update_tarjeta(
     fecha_vencimiento
 ):
 
-    conexion = get_connection()
-    cursor = conexion.cursor()
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        UPDATE tarjeta
-        SET
-            estado = %s,
-            fecha_vencimiento = %s
-        WHERE id_tarjeta = %s
-        """,
-        (
-            estado,
-            fecha_vencimiento,
-            id_tarjeta
-        )
-    )
+    try:
 
-    conexion.commit()
+        tarjeta = session.get(Tarjeta, id_tarjeta)
 
-    cursor.close()
-    conexion.close()
-    
+        if not tarjeta:
+            return 0
+
+        tarjeta.estado = estado
+        tarjeta.fecha_vencimiento = fecha_vencimiento
+
+        session.commit()
+
+        return 1
+
+    finally:
+        session.close()
+
+
 def obtener_tarjeta_por_id(id_tarjeta: int):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        SELECT id_tarjeta
-        FROM tarjeta
-        WHERE id_tarjeta = %s
-        """,
-        (id_tarjeta,)
-    )
+    try:
 
-    tarjeta = cursor.fetchone()
+        return session.get(Tarjeta, id_tarjeta)
 
-    cursor.close()
-    conexion.close()
+    finally:
+        session.close()
 
-    return tarjeta
 
 def eliminar_tarjeta(id_tarjeta: int):
 
-    conexion = get_connection()
-    cursor = conexion.cursor()
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        DELETE FROM tarjeta
-        WHERE id_tarjeta = %s
-        """,
-        (id_tarjeta,)
-    )
+    try:
 
-    conexion.commit()
+        tarjeta = session.get(Tarjeta, id_tarjeta)
 
-    filas_afectadas = cursor.rowcount
+        if not tarjeta:
+            return 0
 
-    cursor.close()
-    conexion.close()
+        session.delete(tarjeta)
+        session.commit()
 
-    return filas_afectadas
+        return 1
+
+    finally:
+        session.close()

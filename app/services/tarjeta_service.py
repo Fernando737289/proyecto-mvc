@@ -10,9 +10,9 @@ from app.services.qr_service import (
 from app.repository.tarjeta_repository import (
     verificar_tarjeta_existente,
     crear_tarjeta,
-    get_tarjeta,
+    get_tarjeta as repo_get_tarjeta,
     get_tarjeta_by_id,
-    update_tarjeta,
+    update_tarjeta as repo_update_tarjeta,
     eliminar_tarjeta,
     obtener_tarjeta_por_id
 )
@@ -29,13 +29,13 @@ def create_tarjeta(
 
         persona = get_persona_by_rut(rut)
 
-        if persona["nombres"].strip().lower() != nombres.strip().lower():
+        if persona.nombres.strip().lower() != nombres.strip().lower():
             raise HTTPException(
                 status_code=400,
                 detail="Los nombres no coinciden con los registros"
             )
 
-        if persona["apellidos"].strip().lower() != apellidos.strip().lower():
+        if persona.apellidos.strip().lower() != apellidos.strip().lower():
             raise HTTPException(
                 status_code=400,
                 detail="Los apellidos no coinciden con los registros"
@@ -43,7 +43,7 @@ def create_tarjeta(
 
         if telefono:
 
-            telefono_bd = persona.get("telefono")
+            telefono_bd = persona.telefono
 
             if telefono_bd != telefono:
                 raise HTTPException(
@@ -52,7 +52,7 @@ def create_tarjeta(
                 )
 
         tarjeta_existente = verificar_tarjeta_existente(
-            persona["id_persona"]
+            persona.id_persona
         )
 
         if tarjeta_existente:
@@ -70,7 +70,7 @@ def create_tarjeta(
         fecha_vencimiento = fecha_emision + timedelta(days=365)
 
         id_tarjeta = crear_tarjeta(
-            persona["id_persona"],
+            persona.id_persona,
             numero_tarjeta,
             codigo_qr,
             fecha_emision,
@@ -109,7 +109,7 @@ def get_tarjeta(
                 detail="Debe ingresar un rut o un número de tarjeta"
             )
 
-        tarjeta = get_tarjeta(
+        tarjeta = repo_get_tarjeta(
             rut,
             numero_tarjeta
         )
@@ -122,14 +122,14 @@ def get_tarjeta(
             )
 
         return {
-            "id_persona": tarjeta["id_persona"],
-            "nombres": tarjeta["nombres"],
-            "apellidos": tarjeta["apellidos"],
-            "rut": tarjeta["rut"],
-            "numero_tarjeta": tarjeta["numero_tarjeta"],
-            "codigo_qr": tarjeta["codigo_qr"],
-            "vigencia": tarjeta["fecha_vencimiento"],
-            "estado": tarjeta["estado"]
+            "id_persona": tarjeta.id_persona,
+            "nombres": tarjeta.persona.nombres,
+            "apellidos": tarjeta.persona.apellidos,
+            "rut": tarjeta.persona.rut,
+            "numero_tarjeta": tarjeta.numero_tarjeta,
+            "codigo_qr": tarjeta.codigo_qr,
+            "vigencia": tarjeta.fecha_vencimiento,
+            "estado": tarjeta.estado
         }
 
     except HTTPException:
@@ -163,7 +163,7 @@ def update_tarjeta(
                 detail="Tarjeta no encontrada"
             )
 
-        update_tarjeta(
+        repo_update_tarjeta(
             id_tarjeta,
             estado,
             fecha_vencimiento

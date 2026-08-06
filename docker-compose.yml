@@ -1,0 +1,45 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: tarjetavecino_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root123}
+      MYSQL_DATABASE: ${DB_NAME:-backTarjetaVecino}
+      TZ: UTC
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./backTarjetaVecino.sql:/docker-entrypoint-initdb.d/backTarjetaVecino.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  backend:
+    build: .
+    container_name: tarjetavecino_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-root123}
+      DB_NAME: ${DB_NAME:-backTarjetaVecino}
+      SECRET_KEY: ${SECRET_KEY}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      FERNET_KEY: ${FERNET_KEY}
+      URL_API: ${API_URL}
+      DEC_API_KEY: ${API_TOKEN}
+    ports:
+      - "8000:8000"
+
+volumes:
+  db_data:

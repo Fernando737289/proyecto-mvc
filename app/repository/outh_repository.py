@@ -1,5 +1,8 @@
-import bcrypt
-from app.core.database import get_connection
+from sqlalchemy import or_, select
+
+from app.core.database import SessionLocal
+from app.core.security import hash_password
+from app.models.orm import Usuario
 
 
 def buscar_usuario_por_username_email(
@@ -7,28 +10,21 @@ def buscar_usuario_por_username_email(
     email: str
 ):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        SELECT id_usuario
-        FROM usuario
-        WHERE username = %s
-           OR email = %s
-        """,
-        (
-            username,
-            email
-        )
-    )
+    try:
 
-    usuario = cursor.fetchone()
+        return session.execute(
+            select(Usuario).where(
+                or_(
+                    Usuario.username == username,
+                    Usuario.email == email
+                )
+            )
+        ).scalar_one_or_none()
 
-    cursor.close()
-    conexion.close()
-
-    return usuario
+    finally:
+        session.close()
 
 
 def crear_usuario(
@@ -37,35 +33,20 @@ def crear_usuario(
     password: str
 ):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    password_hash = bcrypt.hashpw(
-        password.encode("utf-8"),
-        bcrypt.gensalt(rounds=14)
-    ).decode("utf-8")
+    try:
 
-    cursor.execute(
-        """
-        INSERT INTO usuario(
-            username,
-            email,
-            password_hash
+        usuario = Usuario(
+            username=username,
+            email=email,
+            password_hash=hash_password(password)
         )
-        VALUES(%s,%s,%s)
-        """,
-        (
-            username,
-            email,
-            password_hash
-        )
-    )
 
-    conexion.commit()
+        session.add(usuario)
+        session.commit()
 
-    id_usuario = cursor.lastrowid
+        return usuario.id_usuario
 
-    cursor.close()
-    conexion.close()
-
-    return id_usuario
+    finally:
+        session.close()

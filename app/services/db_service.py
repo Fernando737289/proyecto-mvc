@@ -1,29 +1,23 @@
-from app.core.database import get_connection
+from sqlalchemy import text
+
+from app.core.database import engine
 
 #prueba de conexion a base de datos.
 def database_connection():
-    
+
     try:
-        
-        conexion = get_connection()
-        
-        cursor = conexion.cursor()
-        
-        cursor.execute("SELECT DATABASE();")
-        
-        resultado = cursor.fetchone()
-        
-        cursor.close()
-        conexion.close()
-        
+
+        with engine.connect() as conexion:
+
+            resultado = conexion.execute(text("SELECT DATABASE();")).fetchone()
+
         return {
             "conexion": "exitosa",
             "baseDeDatos": resultado[0]
         }
-    
+
     except Exception as error:
-        
+
         return {
-            
             "error": str(error)
         }

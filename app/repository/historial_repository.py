@@ -1,40 +1,24 @@
-from app.core.database import get_connection
+from sqlalchemy import select
+from sqlalchemy.orm import joinedload
+
+from app.core.database import SessionLocal
+from app.models.orm import HistorialBeneficio
 
 
 def obtener_historial_persona(id_persona: int):
 
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
+    session = SessionLocal()
 
-    cursor.execute(
-        """
-        SELECT
-            h.id_historial,
-            h.codigo_canje,
-            h.fecha_uso,
+    try:
 
-            b.id_beneficio,
-            b.nombre,
-            b.descripcion,
-            b.comercio,
-            b.tipo_descuento,
-            b.valor_descuento
+        stmt = (
+            select(HistorialBeneficio)
+            .options(joinedload(HistorialBeneficio.beneficio))
+            .where(HistorialBeneficio.id_persona == id_persona)
+            .order_by(HistorialBeneficio.fecha_uso.desc())
+        )
 
-        FROM historial_beneficios h
+        return session.execute(stmt).scalars().all()
 
-        INNER JOIN beneficios b
-            ON h.id_beneficio = b.id_beneficio
-
-        WHERE h.id_persona = %s
-
-        ORDER BY h.fecha_uso DESC
-        """,
-        (id_persona,)
-    )
-
-    historial = cursor.fetchall()
-
-    cursor.close()
-    conexion.close()
-
-    return historial
+    finally:
+        session.close()
