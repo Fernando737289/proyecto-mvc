@@ -1,6 +1,6 @@
 # backend-TarjetaVecino
 
-Backend de la Tarjeta Vecino (Municipalidad de San Bernardo). API REST construida con **FastAPI** y **MySQL**, con capa de datos sobre **SQLAlchemy ORM**.
+Backend de la Tarjeta Vecino. API REST construida con **FastAPI** y **MySQL**, con capa de datos sobre **SQLAlchemy ORM**.
 
 ## Contenido
 
