@@ -25,7 +25,7 @@ def get_current_user(
         if username is None:
             raise HTTPException(
                 status_code = 401,
-                detail = "Token invalido"
+                detail = "Token inválido"
             )
             
         return payload
@@ -34,7 +34,7 @@ def get_current_user(
         
         raise HTTPException(
             status_code=401,
-            detail="Token invalido o expirado"
+            detail="Token inválido o expirado"
         )
         
 def require_admin(
@@ -45,7 +45,7 @@ def require_admin(
         
         raise HTTPException(
             status_code=403,
-            detail="No tienes permisos para realizar esta accion"
+            detail="No tienes permisos para realizar esta acción"
         )
     
     return usuario

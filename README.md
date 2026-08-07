@@ -155,9 +155,12 @@ Los usuarios de ejemplo se crean con la base de datos semilla (`admin`, `funcion
 
 ```bash
 docker compose exec backend python -c "
-from app.repository.outh_repository import crear_usuario
-id_usuario = crear_usuario('miadmin', 'miadmin@example.com', 'ClaveSegura123!')
-print('Usuario creado, id_usuario:', id_usuario)
+from app.core.database import SessionLocal
+from app.repository.usuario_repository import crear_usuario
+
+with SessionLocal() as db:
+    crear_usuario(db, 'miadmin', 'miadmin@example.com', 'ClaveSegura123!')
+    db.commit()
 "
 ```
 
@@ -196,6 +199,12 @@ curl -X POST "http://localhost:8000/beneficios/canjear?id_persona=13&id_benefici
 
 # Con token de administrador
 curl http://localhost:8000/beneficios/ -H "Authorization: Bearer $TOKEN"
+
+# Regenerar el QR de una tarjeta y obtenerlo en base64 (solo admin)
+curl -X POST http://localhost:8000/qr/generar \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"rut":"21817151-6"}'
 ```
 
 ---
@@ -211,6 +220,7 @@ curl http://localhost:8000/beneficios/ -H "Authorization: Bearer $TOKEN"
 | `docker compose down` | Detiene los contenedores (conserva los datos en el volumen). |
 | `docker compose down -v` | Detiene y **borra el volumen** de la base de datos (vuelve al estado semilla en el próximo arranque). |
 | `docker compose restart` | Reinicia los contenedores. |
+| `docker compose exec backend python -m pytest` | Ejecuta la suite de tests (usa una BD de test separada `backTarjetaVecino_test`; no toca tus datos). |
 
 ---
 

@@ -40,7 +40,7 @@ CREATE TABLE `auditoria` (
   `accion_realizada` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `descripcion` text COLLATE utf8mb4_unicode_ci,
   `usuario_accion` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `fecha_accion` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `fecha_accion` datetime NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -55,11 +55,11 @@ CREATE TABLE `beneficios` (
   `descripcion` text COLLATE utf8mb4_unicode_ci,
   `tipo_descuento` enum('porcentaje','monto_fijo','2x1') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `valor_descuento` decimal(10,2) DEFAULT NULL,
-  `stock` int DEFAULT '0',
+  `stock` int NOT NULL DEFAULT '0',
   `fecha_inicio` date DEFAULT NULL,
   `fecha_vencimiento` date DEFAULT NULL,
   `comercio` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `estado` enum('activo','inactivo') COLLATE utf8mb4_unicode_ci DEFAULT 'activo'
+  `estado` enum('activo','inactivo') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'activo'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -114,8 +114,8 @@ CREATE TABLE `persona` (
   `telefono` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `fecha_nacimiento` date DEFAULT NULL,
-  `estado` enum('activo','inactivo') COLLATE utf8mb4_unicode_ci DEFAULT 'activo',
-  `fecha_creacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `estado` enum('activo','inactivo') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'activo',
+  `fecha_creacion` datetime NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -139,7 +139,7 @@ CREATE TABLE `tarjeta` (
   `codigo_qr` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
   `fecha_emision` date NOT NULL,
   `fecha_vencimiento` date NOT NULL,
-  `estado` enum('activa','bloqueada','vencida') COLLATE utf8mb4_unicode_ci DEFAULT 'activa'
+  `estado` enum('activa','bloqueada','vencida') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'activa'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -160,8 +160,8 @@ CREATE TABLE `usuario` (
   `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `rol` enum('admin','funcionario') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'funcionario',
-  `estado` enum('activo','inactivo') COLLATE utf8mb4_unicode_ci DEFAULT 'activo',
-  `fecha_creacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `estado` enum('activo','inactivo') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'activo',
+  `fecha_creacion` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -217,7 +217,8 @@ ALTER TABLE `tarjeta`
 --
 ALTER TABLE `usuario`
   ADD PRIMARY KEY (`id_usuario`),
-  ADD UNIQUE KEY `uk_usuario_username` (`username`);
+  ADD UNIQUE KEY `uk_usuario_username` (`username`),
+  ADD UNIQUE KEY `uk_usuario_email` (`email`);
 
 --
 -- AUTO_INCREMENT de las tablas volcadas

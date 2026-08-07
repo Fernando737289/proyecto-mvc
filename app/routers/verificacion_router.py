@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from app.services.dec_services import validar_vigencia_rut
-from app.models.verificacion import VerificacionCedulaSchema 
+from app.models.schemas import VerificacionCedulaSchema
 
 router = APIRouter(
     prefix="/verificaciones",

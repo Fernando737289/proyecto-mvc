@@ -1,43 +1,27 @@
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
 from app.models.orm import Auditoria
 
 
-def registrar_auditoria(
+def insertar_auditoria(
+    db: Session,
     tabla_afectada: str,
     accion_realizada: str,
     descripcion: str,
     usuario_accion: str
 ):
 
-    session = SessionLocal()
-
-    try:
-
-        auditoria = Auditoria(
-            tabla_afectada=tabla_afectada,
-            accion_realizada=accion_realizada,
-            descripcion=descripcion,
-            usuario_accion=usuario_accion
-        )
-
-        session.add(auditoria)
-        session.commit()
-
-    finally:
-        session.close()
+    db.add(Auditoria(
+        tabla_afectada=tabla_afectada,
+        accion_realizada=accion_realizada,
+        descripcion=descripcion,
+        usuario_accion=usuario_accion
+    ))
 
 
-def obtener_auditoria():
+def obtener_auditoria(db: Session):
 
-    session = SessionLocal()
-
-    try:
-
-        return session.execute(
-            select(Auditoria).order_by(Auditoria.fecha_accion.desc())
-        ).scalars().all()
-
-    finally:
-        session.close()
+    return db.execute(
+        select(Auditoria).order_by(Auditoria.fecha_accion.desc())
+    ).scalars().all()

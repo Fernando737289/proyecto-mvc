@@ -1,90 +1,59 @@
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
 from app.models.orm import Beneficio
 
 
-def crear_beneficio(data):
+def crear_beneficio(db: Session, data):
 
-    session = SessionLocal()
+    beneficio = Beneficio(
+        nombre=data.nombre,
+        descripcion=data.descripcion,
+        tipo_descuento=data.tipo_descuento,
+        valor_descuento=data.valor_descuento,
+        stock=data.stock,
+        fecha_inicio=data.fecha_inicio,
+        fecha_vencimiento=data.fecha_vencimiento,
+        comercio=data.comercio
+    )
 
-    try:
+    db.add(beneficio)
+    db.flush()
 
-        beneficio = Beneficio(
-            nombre=data.nombre,
-            descripcion=data.descripcion,
-            tipo_descuento=data.tipo_descuento,
-            valor_descuento=data.valor_descuento,
-            stock=data.stock,
-            fecha_inicio=data.fecha_inicio,
-            fecha_vencimiento=data.fecha_vencimiento,
-            comercio=data.comercio
-        )
-
-        session.add(beneficio)
-        session.commit()
-
-        return beneficio.id_beneficio
-
-    finally:
-        session.close()
+    return beneficio.id_beneficio
 
 
-def obtener_beneficios():
+def obtener_beneficios(db: Session):
 
-    session = SessionLocal()
-
-    try:
-
-        return session.execute(
-            select(Beneficio).where(Beneficio.estado == "activo")
-        ).scalars().all()
-
-    finally:
-        session.close()
+    return db.execute(
+        select(Beneficio).where(Beneficio.estado == "activo")
+    ).scalars().all()
 
 
-def eliminar_beneficio(id_beneficio: int):
+def eliminar_beneficio(db: Session, id_beneficio: int):
 
-    session = SessionLocal()
+    beneficio = db.get(Beneficio, id_beneficio)
 
-    try:
+    if not beneficio:
+        return 0
 
-        beneficio = session.get(Beneficio, id_beneficio)
+    beneficio.estado = "inactivo"
 
-        if not beneficio:
-            return 0
-
-        beneficio.estado = "inactivo"
-
-        session.commit()
-
-        return 1
-
-    finally:
-        session.close()
+    return 1
 
 
 def actualizar_beneficio(
+    db: Session,
     id_beneficio: int,
     data
 ):
 
-    session = SessionLocal()
+    beneficio = db.get(Beneficio, id_beneficio)
 
-    try:
+    if not beneficio:
+        return 0
 
-        beneficio = session.get(Beneficio, id_beneficio)
+    beneficio.nombre = data.nombre
+    beneficio.descripcion = data.descripcion
 
-        if not beneficio:
-            return 0
-
-        beneficio.nombre = data.nombre
-        beneficio.descripcion = data.descripcion
-
-        session.commit()
-
-        return 1
-
-    finally:
-        session.close()
+    return 1

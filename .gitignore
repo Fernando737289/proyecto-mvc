@@ -35,3 +35,6 @@ __pycache__/
 .pytest_cache/
 # Mypy
 .mypy_cache/
+# Skills de opencode (regenerables, no son codigo del proyecto)
+.agents/
+skills-lock.json

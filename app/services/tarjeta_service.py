@@ -1,3 +1,4 @@
+import logging
 import random
 
 from datetime import date, timedelta
@@ -9,25 +10,30 @@ from app.services.qr_service import (
 )
 from app.repository.tarjeta_repository import (
     verificar_tarjeta_existente,
-    crear_tarjeta,
+    crear_tarjeta as repo_crear_tarjeta,
     get_tarjeta as repo_get_tarjeta,
     get_tarjeta_by_id,
     update_tarjeta as repo_update_tarjeta,
     eliminar_tarjeta,
     obtener_tarjeta_por_id
 )
+from app.services.auditoria_service import registrar_auditoria
+
+logger = logging.getLogger(__name__)
 
 
 def create_tarjeta(
+    db,
     rut: str,
     nombres: str,
     apellidos: str,
-    telefono: str | None = None
+    telefono: str | None = None,
+    usuario_accion="admin"
 ):
 
     try:
 
-        persona = get_persona_by_rut(rut)
+        persona = get_persona_by_rut(db, rut)
 
         if persona.nombres.strip().lower() != nombres.strip().lower():
             raise HTTPException(
@@ -52,6 +58,7 @@ def create_tarjeta(
                 )
 
         tarjeta_existente = verificar_tarjeta_existente(
+            db,
             persona.id_persona
         )
 
@@ -69,7 +76,8 @@ def create_tarjeta(
 
         fecha_vencimiento = fecha_emision + timedelta(days=365)
 
-        id_tarjeta = crear_tarjeta(
+        id_tarjeta = repo_crear_tarjeta(
+            db,
             persona.id_persona,
             numero_tarjeta,
             codigo_qr,
@@ -78,6 +86,16 @@ def create_tarjeta(
             "activa"
         )
 
+        registrar_auditoria(
+            db,
+            tabla_afectada="tarjeta",
+            accion_realizada="INSERT",
+            descripcion=f"Se creó una tarjeta para el RUT {rut}",
+            usuario_accion=usuario_accion
+        )
+
+        db.commit()
+
         return {
             "id_tarjeta": id_tarjeta,
             "numero_tarjeta": numero_tarjeta,
@@ -85,17 +103,24 @@ def create_tarjeta(
         }
 
     except HTTPException:
+        db.rollback()
         raise
 
-    except Exception as e:
+    except Exception:
+
+        logger.exception(
+            "Error al crear tarjeta para RUT %s",
+            rut
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=f"Error al crear tarjeta: {str(e)}"
+            detail="Error al crear la tarjeta"
         )
-        
+
 
 def get_tarjeta(
+    db,
     rut: str | None = None,
     numero_tarjeta: str | None = None
 ):
@@ -110,6 +135,7 @@ def get_tarjeta(
             )
 
         tarjeta = repo_get_tarjeta(
+            db,
             rut,
             numero_tarjeta
         )
@@ -135,24 +161,32 @@ def get_tarjeta(
     except HTTPException:
         raise
 
-    except Exception as e:
+    except Exception:
+
+        logger.exception(
+            "Error al obtener la tarjeta (rut=%s, numero_tarjeta=%s)",
+            rut,
+            numero_tarjeta
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=f"Error al obtener la tarjeta: {str(e)}"
+            detail="Error al obtener la tarjeta"
         )
 
-        
-        
+
 def update_tarjeta(
+    db,
     id_tarjeta: int,
     estado: str,
-    fecha_vencimiento
+    fecha_vencimiento,
+    usuario_accion="admin"
 ):
 
     try:
 
         tarjeta = get_tarjeta_by_id(
+            db,
             id_tarjeta
         )
 
@@ -164,10 +198,21 @@ def update_tarjeta(
             )
 
         repo_update_tarjeta(
+            db,
             id_tarjeta,
             estado,
             fecha_vencimiento
         )
+
+        registrar_auditoria(
+            db,
+            tabla_afectada="tarjeta",
+            accion_realizada="UPDATE",
+            descripcion=f"Se actualizó la tarjeta ID {id_tarjeta}",
+            usuario_accion=usuario_accion
+        )
+
+        db.commit()
 
         return {
             "id_tarjeta": id_tarjeta,
@@ -175,21 +220,27 @@ def update_tarjeta(
         }
 
     except HTTPException:
+        db.rollback()
         raise
 
     except Exception:
+
+        logger.exception(
+            "Error al actualizar la tarjeta %s",
+            id_tarjeta
+        )
 
         raise HTTPException(
             status_code=500,
             detail="Error al actualizar la tarjeta"
         )
-        
 
-def delete_tarjeta(id_tarjeta: int):
+
+def delete_tarjeta(db, id_tarjeta: int, usuario_accion="admin"):
 
     try:
 
-        tarjeta = obtener_tarjeta_por_id(id_tarjeta)
+        tarjeta = obtener_tarjeta_por_id(db, id_tarjeta)
 
         if not tarjeta:
 
@@ -198,7 +249,17 @@ def delete_tarjeta(id_tarjeta: int):
                 detail="Tarjeta no encontrada"
             )
 
-        eliminar_tarjeta(id_tarjeta)
+        eliminar_tarjeta(db, id_tarjeta)
+
+        registrar_auditoria(
+            db,
+            tabla_afectada="tarjeta",
+            accion_realizada="DELETE",
+            descripcion=f"Se eliminó la tarjeta ID {id_tarjeta}",
+            usuario_accion=usuario_accion
+        )
+
+        db.commit()
 
         return {
             "id_tarjeta": id_tarjeta,
@@ -206,9 +267,15 @@ def delete_tarjeta(id_tarjeta: int):
         }
 
     except HTTPException:
+        db.rollback()
         raise
 
     except Exception:
+
+        logger.exception(
+            "Error al eliminar la tarjeta %s",
+            id_tarjeta
+        )
 
         raise HTTPException(
             status_code=500,

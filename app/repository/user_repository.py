@@ -1,24 +1,18 @@
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
 from app.models.orm import Persona
 
 
-def existe_usuario_por_rut(rut: str):
+def existe_usuario_por_rut(db: Session, rut: str):
 
-    session = SessionLocal()
-
-    try:
-
-        return session.execute(
-            select(Persona.id_persona).where(Persona.rut == rut)
-        ).scalar_one_or_none()
-
-    finally:
-        session.close()
+    return db.execute(
+        select(Persona.id_persona).where(Persona.rut == rut)
+    ).scalar_one_or_none()
 
 
 def insertar_usuario(
+    db: Session,
     rut,
     serial_number,
     nombres,
@@ -30,110 +24,72 @@ def insertar_usuario(
     fecha_nacimiento
 ):
 
-    session = SessionLocal()
+    persona = Persona(
+        rut=rut,
+        serial_number=serial_number,
+        nombres=nombres,
+        apellidos=apellidos,
+        direccion=direccion,
+        numero_direccion=numero_direccion,
+        telefono=telefono,
+        email=email,
+        fecha_nacimiento=fecha_nacimiento
+    )
 
-    try:
+    db.add(persona)
 
-        persona = Persona(
-            rut=rut,
-            serial_number=serial_number,
-            nombres=nombres,
-            apellidos=apellidos,
-            direccion=direccion,
-            numero_direccion=numero_direccion,
-            telefono=telefono,
-            email=email,
-            fecha_nacimiento=fecha_nacimiento
-        )
-
-        session.add(persona)
-        session.commit()
-
-    finally:
-        session.close()
+    return persona
 
 
-def obtener_personas():
+def obtener_personas(db: Session):
 
-    session = SessionLocal()
-
-    try:
-
-        return session.execute(
-            select(Persona)
-        ).scalars().all()
-
-    finally:
-        session.close()
+    return db.execute(
+        select(Persona)
+    ).scalars().all()
 
 
-def update_user_repository(id_persona, user):
+def update_user_repository(db: Session, id_persona, user):
 
-    session = SessionLocal()
+    persona = db.get(Persona, id_persona)
 
-    try:
+    if not persona:
+        return 0
 
-        persona = session.get(Persona, id_persona)
+    persona.rut = user.rut
+    persona.nombres = user.nombres
+    persona.apellidos = user.apellidos
+    persona.direccion = user.direccion
+    persona.numero_direccion = user.numero_direccion
+    persona.telefono = user.telefono
+    persona.email = user.email
+    persona.fecha_nacimiento = user.fecha_nacimiento
 
-        if not persona:
-            return 0
-
-        persona.rut = user.rut
-        persona.nombres = user.nombres
-        persona.apellidos = user.apellidos
-        persona.direccion = user.direccion
-        persona.numero_direccion = user.numero_direccion
-        persona.telefono = user.telefono
-        persona.email = user.email
-        persona.fecha_nacimiento = user.fecha_nacimiento
-
-        session.commit()
-
-        return 1
-
-    finally:
-        session.close()
+    return 1
 
 
-def delete_user_repository(id_persona):
+def delete_user_repository(db: Session, id_persona):
 
-    session = SessionLocal()
+    persona = db.get(Persona, id_persona)
 
-    try:
+    if not persona:
+        return 0
 
-        persona = session.get(Persona, id_persona)
+    db.delete(persona)
 
-        if not persona:
-            return 0
-
-        session.delete(persona)
-        session.commit()
-
-        return 1
-
-    finally:
-        session.close()
+    return 1
 
 
 def update_estado_persona_repository(
+    db: Session,
     id_persona,
     estado
 ):
 
-    session = SessionLocal()
+    persona = db.get(Persona, id_persona)
 
-    try:
+    if not persona:
+        return 0
 
-        persona = session.get(Persona, id_persona)
+    persona.estado = estado
 
-        if not persona:
-            return 0
-
-        persona.estado = estado
-
-        session.commit()
-
-        return 1
-
-    finally:
-        session.close()
+    return 1

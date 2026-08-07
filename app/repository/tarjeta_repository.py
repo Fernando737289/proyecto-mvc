@@ -1,25 +1,18 @@
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import Session, joinedload
 
-from app.core.database import SessionLocal
 from app.models.orm import Persona, Tarjeta
 
 
-def verificar_tarjeta_existente(id_persona: int):
+def verificar_tarjeta_existente(db: Session, id_persona: int):
 
-    session = SessionLocal()
-
-    try:
-
-        return session.execute(
-            select(Tarjeta.id_tarjeta).where(Tarjeta.id_persona == id_persona)
-        ).scalar_one_or_none()
-
-    finally:
-        session.close()
+    return db.execute(
+        select(Tarjeta.id_tarjeta).where(Tarjeta.id_persona == id_persona)
+    ).scalar_one_or_none()
 
 
 def crear_tarjeta(
+    db: Session,
     id_persona: int,
     numero_tarjeta: str,
     codigo_qr: str,
@@ -28,117 +21,85 @@ def crear_tarjeta(
     estado: str
 ):
 
-    session = SessionLocal()
+    tarjeta = Tarjeta(
+        id_persona=id_persona,
+        numero_tarjeta=numero_tarjeta,
+        codigo_qr=codigo_qr,
+        fecha_emision=fecha_emision,
+        fecha_vencimiento=fecha_vencimiento,
+        estado=estado
+    )
 
-    try:
+    db.add(tarjeta)
+    db.flush()
 
-        tarjeta = Tarjeta(
-            id_persona=id_persona,
-            numero_tarjeta=numero_tarjeta,
-            codigo_qr=codigo_qr,
-            fecha_emision=fecha_emision,
-            fecha_vencimiento=fecha_vencimiento,
-            estado=estado
-        )
-
-        session.add(tarjeta)
-        session.commit()
-
-        return tarjeta.id_tarjeta
-
-    finally:
-        session.close()
+    return tarjeta.id_tarjeta
 
 
-def get_tarjeta(rut=None, numero_tarjeta=None):
+def get_tarjeta(db: Session, rut=None, numero_tarjeta=None):
 
-    session = SessionLocal()
+    stmt = (
+        select(Tarjeta)
+        .join(Persona, Tarjeta.id_persona == Persona.id_persona)
+        .options(joinedload(Tarjeta.persona))
+    )
 
-    try:
+    if rut:
+        stmt = stmt.where(Persona.rut == rut)
 
-        stmt = (
-            select(Tarjeta)
-            .join(Persona, Tarjeta.id_persona == Persona.id_persona)
-            .options(joinedload(Tarjeta.persona))
-        )
+    if numero_tarjeta:
+        stmt = stmt.where(Tarjeta.numero_tarjeta == numero_tarjeta)
 
-        if rut:
-            stmt = stmt.where(Persona.rut == rut)
-
-        if numero_tarjeta:
-            stmt = stmt.where(Tarjeta.numero_tarjeta == numero_tarjeta)
-
-        return session.execute(stmt).scalars().first()
-
-    finally:
-        session.close()
+    return db.execute(stmt).scalars().first()
 
 
-def get_tarjeta_by_id(id_tarjeta):
+def get_tarjeta_by_id(db: Session, id_tarjeta):
 
-    session = SessionLocal()
+    return db.get(Tarjeta, id_tarjeta)
 
-    try:
 
-        return session.get(Tarjeta, id_tarjeta)
+def actualizar_codigo_qr(db: Session, id_tarjeta: int, codigo_qr: str):
 
-    finally:
-        session.close()
+    tarjeta = db.get(Tarjeta, id_tarjeta)
+
+    if not tarjeta:
+        return 0
+
+    tarjeta.codigo_qr = codigo_qr
+
+    return 1
 
 
 def update_tarjeta(
+    db: Session,
     id_tarjeta,
     estado,
     fecha_vencimiento
 ):
 
-    session = SessionLocal()
+    tarjeta = db.get(Tarjeta, id_tarjeta)
 
-    try:
+    if not tarjeta:
+        return 0
 
-        tarjeta = session.get(Tarjeta, id_tarjeta)
+    tarjeta.estado = estado
+    tarjeta.fecha_vencimiento = fecha_vencimiento
 
-        if not tarjeta:
-            return 0
-
-        tarjeta.estado = estado
-        tarjeta.fecha_vencimiento = fecha_vencimiento
-
-        session.commit()
-
-        return 1
-
-    finally:
-        session.close()
+    return 1
 
 
-def obtener_tarjeta_por_id(id_tarjeta: int):
+def obtener_tarjeta_por_id(db: Session, id_tarjeta: int):
 
-    session = SessionLocal()
-
-    try:
-
-        return session.get(Tarjeta, id_tarjeta)
-
-    finally:
-        session.close()
+    return db.get(Tarjeta, id_tarjeta)
 
 
-def eliminar_tarjeta(id_tarjeta: int):
+def eliminar_tarjeta(db: Session, id_tarjeta: int):
 
-    session = SessionLocal()
+    tarjeta = db.get(Tarjeta, id_tarjeta)
 
-    try:
+    if not tarjeta:
+        return 0
 
-        tarjeta = session.get(Tarjeta, id_tarjeta)
+    db.delete(tarjeta)
 
-        if not tarjeta:
-            return 0
-
-        session.delete(tarjeta)
-        session.commit()
-
-        return 1
-
-    finally:
-        session.close()
+    return 1

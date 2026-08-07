@@ -8,15 +8,14 @@ from app.core.security import (
 from app.repository.auth_repository import obtener_usuario_por_email
 
 
+def login_user(db, email: str, password: str):
 
-def login_user(email: str, password: str):
-
-    usuario = obtener_usuario_por_email(email)
+    usuario = obtener_usuario_por_email(db, email)
 
     if not usuario:
         raise HTTPException(
             status_code=401,
-            detail="Credenciales invalidas"
+            detail="Credenciales inválidas"
         )
 
     if usuario.estado != "activo":
@@ -28,7 +27,7 @@ def login_user(email: str, password: str):
     if not verify_password(password, usuario.password_hash):
         raise HTTPException(
             status_code=401,
-            detail="Credenciales invalidas"
+            detail="Credenciales inválidas"
         )
 
     token = create_access_token({

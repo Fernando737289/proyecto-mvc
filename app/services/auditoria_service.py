@@ -1,11 +1,17 @@
+import logging
+
 from fastapi import HTTPException
 
 from app.repository.auditoria_repository import (
-    registrar_auditoria,
-    obtener_auditoria
+    insertar_auditoria,
+    obtener_auditoria as repo_obtener_auditoria
 )
 
-def crear_auditoria(
+logger = logging.getLogger(__name__)
+
+
+def registrar_auditoria(
+    db,
     tabla_afectada: str,
     accion_realizada: str,
     descripcion: str,
@@ -14,26 +20,36 @@ def crear_auditoria(
 
     try:
 
-        registrar_auditoria(
+        insertar_auditoria(
+            db,
             tabla_afectada,
             accion_realizada,
             descripcion,
             usuario_accion
         )
 
-    except Exception as e:
+    except Exception:
+
+        db.rollback()
+
+        logger.exception(
+            "Error al registrar auditoría (%s %s por %s)",
+            tabla_afectada,
+            accion_realizada,
+            usuario_accion
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=f"Error al registrar auditoría: {str(e)}"
+            detail="Error al registrar la auditoría"
         )
 
 
-def list_auditoria():
+def list_auditoria(db):
 
     try:
 
-        return obtener_auditoria()
+        return repo_obtener_auditoria(db)
 
     except Exception:
 

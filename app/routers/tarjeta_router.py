@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Depends
-from app.models.tarjeta_model import CreateTarjetaRequest, UpdateTarjetaRequest
-from app.models.schemas import TarjetaOut
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.models.schemas import (
+    CreateTarjetaRequest, TarjetaOut, UpdateTarjetaRequest
+)
 from app.services.tarjeta_service import (
     create_tarjeta,
     get_tarjeta,
     update_tarjeta,
     delete_tarjeta
 )
-from app.services.auditoria_service import registrar_auditoria
 from app.core.dependencies import require_admin
 
 router = APIRouter(
@@ -18,32 +21,28 @@ router = APIRouter(
 @router.post("/crear")
 def crear_tarjeta(
     data: CreateTarjetaRequest,
+    db: Session = Depends(get_db),
     admin=Depends(require_admin)
 ):
 
-    resultado = create_tarjeta(
+    return create_tarjeta(
+        db,
         data.rut,
         data.nombres,
         data.apellidos,
-        data.telefono
+        data.telefono,
+        admin["sub"]
     )
-
-    registrar_auditoria(
-        tabla_afectada="tarjeta",
-        accion_realizada="INSERT",
-        descripcion=f"Se creó una tarjeta para el RUT {data.rut}",
-        usuario_accion=admin["sub"]
-    )
-
-    return resultado
 
 @router.get("/buscar", response_model=TarjetaOut)
 def obtener_tarjeta(
     rut: str | None = None,
-    numero_tarjeta: str | None = None
+    numero_tarjeta: str | None = None,
+    db: Session = Depends(get_db)
 ):
 
     return get_tarjeta(
+        db,
         rut=rut,
         numero_tarjeta=numero_tarjeta
     )
@@ -52,37 +51,23 @@ def obtener_tarjeta(
 def actualizar_tarjeta(
     id_tarjeta: int,
     data: UpdateTarjetaRequest,
+    db: Session = Depends(get_db),
     admin=Depends(require_admin)
 ):
 
-    resultado = update_tarjeta(
+    return update_tarjeta(
+        db,
         id_tarjeta,
         data.estado,
-        data.fecha_vencimiento
+        data.fecha_vencimiento,
+        admin["sub"]
     )
-
-    registrar_auditoria(
-        tabla_afectada="tarjeta",
-        accion_realizada="UPDATE",
-        descripcion=f"Se actualizó la tarjeta ID {id_tarjeta}",
-        usuario_accion=admin["sub"]
-    )
-
-    return resultado
 
 @router.delete("/{id_tarjeta}")
 def eliminar_tarjeta(
     id_tarjeta: int,
+    db: Session = Depends(get_db),
     admin=Depends(require_admin)
 ):
 
-    resultado = delete_tarjeta(id_tarjeta)
-
-    registrar_auditoria(
-        tabla_afectada="tarjeta",
-        accion_realizada="DELETE",
-        descripcion=f"Se eliminó la tarjeta ID {id_tarjeta}",
-        usuario_accion=admin["sub"]
-    )
-
-    return resultado
+    return delete_tarjeta(db, id_tarjeta, admin["sub"])

@@ -55,24 +55,15 @@ Se ejecuta con **Docker Compose** (MySQL 8.0 + API FastAPI) o directamente con `
 └── app/
     ├── main/…                 # (no existe; la app es main.py en la raíz)
     ├── core/                  # Configuración y utilidades transversales
-    │   ├── database.py        # Engine + SessionLocal + Base (SQLAlchemy)
+    │   ├── config.py          # Settings centralizados (pydantic-settings)
+    │   ├── database.py        # Engine + SessionLocal + Base + get_db (SQLAlchemy)
     │   ├── security.py        # JWT + hash/verificación de contraseñas (passlib)
     │   ├── encryption.py      # Cifrado/descifrado Fernet (serial_number)
     │   ├── dependencies.py    # Dependencias: get_current_user, require_admin
-    │   ├── generador_codigo.py# Código de canje aleatorio (20 caracteres)
-    │   └── config.py          # VACÍO (archivo residual de plantilla)
-    ├── models/                # Schemas Pydantic (entrada) y modelos ORM
+    │   └── generador_codigo.py# Código de canje aleatorio (20 caracteres)
+    ├── models/                # Schemas Pydantic (entrada/salida) y modelos ORM
     │   ├── orm.py             # Modelos ORM: Persona, Tarjeta, Beneficio, …
-    │   ├── schemas.py         # Schemas de respuesta (from_attributes)
-    │   ├── user.py            # User, UpdateEstadoPersonaRequest
-    │   ├── tarjeta_model.py   # CreateTarjetaRequest, UpdateTarjetaRequest
-    │   ├── beneficio_model.py # Beneficio
-    │   ├── qr_model.py        # QRRequest
-    │   ├── canjes.py          # CanjeSchema (no se usa en rutas actuales)
-    │   ├── auth_model.py      # LoginRequest
-    │   ├── Outh_Model.py      # CreateUsuarioRequest
-    │   ├── verificacion.py    # VerificacionCedulaSchema
-    │   └── item.py            # VACÍO (residual)
+    │   └── schemas.py         # Todos los schemas de entrada/salida + validación RUT
     ├── repository/            # Acceso a BD con SQLAlchemy (una capa por dominio)
     │   ├── user_repository.py
     │   ├── qr_repository.py
@@ -81,7 +72,7 @@ Se ejecuta con **Docker Compose** (MySQL 8.0 + API FastAPI) o directamente con `
     │   ├── canje_repository.py    # Transacción atómica de canje
     │   ├── historial_repository.py
     │   ├── auth_repository.py
-    │   ├── outh_repository.py
+    │   ├── usuario_repository.py
     │   └── auditoria_repository.py
     ├── services/              # Lógica de negocio (orquestan repos)
     │   ├── user_service.py
@@ -91,7 +82,7 @@ Se ejecuta con **Docker Compose** (MySQL 8.0 + API FastAPI) o directamente con `
     │   ├── canjes_service.py
     │   ├── historial_beneficio_service.py
     │   ├── auth_service.py
-    │   ├── Outh_service.py
+    │   ├── usuario_service.py
     │   ├── auditoria_service.py
     │   ├── db_service.py          # Health check de conexión
     │   └── dec_services.py        # Cliente HTTP del servicio externo DEC
@@ -102,16 +93,14 @@ Se ejecuta con **Docker Compose** (MySQL 8.0 + API FastAPI) o directamente con `
     │   ├── beneficio_router.py
     │   ├── canjes_router.py
     │   ├── auth_router.py
-    │   ├── Outh_router.py
+    │   ├── usuario_router.py
     │   ├── auditoria_router.py
     │   ├── verificacion_router.py
-    │   ├── db_conection.py
-    │   └── items.py           # VACÍO (residual)
-    └── dependencies/
-        └── auth.py            # VACÍO (residual)
+    │   └── db_conection.py
+    └── dependencies/          # (eliminado; las dependencias viven en core/dependencies.py)
 ```
 
-> **Archivos residuales**: `app/core/config.py`, `app/models/item.py`, `app/routers/items.py` y `app/dependencies/auth.py` están vacíos y **no se importan** en `main.py`. Pueden borrarse.
+> Los schemas de entrada/salida están **consolidados** en `app/models/schemas.py` (incluye validación de RUT chileno). Ya no hay un archivo de modelo por dominio. `app/dependencies/` fue eliminado.
 
 ---
 
@@ -145,7 +134,7 @@ Reglas de capas:
 | `tarjeta` | Tarjeta de cada vecino | `id_tarjeta` (PK), `id_persona` (FK unique), `numero_tarjeta` (unique), `codigo_qr`, `fecha_emision`, `fecha_vencimiento`, `estado` |
 | `beneficios` | Catálogo de beneficios | `id_beneficio` (PK), `nombre`, `descripcion`, `tipo_descuento`, `valor_descuento`, `stock`, `fecha_inicio`, `fecha_vencimiento`, `comercio`, `estado` |
 | `historial_beneficios` | Canjes realizados | `id_historial` (PK), `id_persona` (FK), `id_beneficio` (FK), `codigo_canje`, `fecha_uso` |
-| `usuario` | Usuarios del sistema | `id_usuario` (PK), `username` (unique), `password_hash`, `rol`, `estado`, `fecha_creacion`, `email` |
+| `usuario` | Usuarios del sistema | `id_usuario` (PK), `username` (unique), `password_hash`, `rol`, `estado`, `fecha_creacion`, `email` (unique) |
 | `auditoria` | Registro de acciones | `id_auditoria` (PK), `tabla_afectada`, `accion_realizada`, `descripcion`, `usuario_accion`, `fecha_accion` |
 
 ### 5.2 Modelos ORM (`app/models/orm.py`)
@@ -158,6 +147,10 @@ Reglas de capas:
 ### 5.3 Datos semilla
 
 El `backTarjetaVecino.sql` crea la BD y carga: 2 personas, 1 tarjeta, 6 beneficios, 3 canjes de historial y 2 usuarios (`admin`, `funcionario 1`). **Las contraseñas de estos usuarios no se conocen**; para probar endpoints protegidos hay que crear un usuario nuevo (ver `README.md`).
+
+### 5.4 Migraciones (Alembic)
+
+Alembic está integrado (`alembic.ini` + `alembic/`): `env.py` se conecta con `settings` y usa `Base.metadata`. La baseline `0001_esquema_inicial.py` es **idempotente** (omite tablas existentes), así que `alembic upgrade head` funciona tanto sobre una BD recién creada como sobre la generada por el dump; el backend la ejecuta en cada arranque (CMD del Dockerfile). Verifica que modelos y BD no diverjan con `docker exec tarjetavecino_backend alembic check`. Ante un cambio de esquema: modifica `orm.py`, crea `alembic revision --autogenerate -m "..."` y refleja el cambio en `backTarjetaVecino.sql`.
 
 ---
 
@@ -190,7 +183,7 @@ El `backTarjetaVecino.sql` crea la BD y carga: 2 personas, 1 tarjeta, 6 benefici
 ### QR
 | Método | Ruta | Acceso | Descripción |
 |---|---|---|---|
-| POST | `/qr/generar` | Público | Genera QR con datos de la persona y devuelve su longitud |
+| POST | `/qr/generar` | Admin | Regenera el QR de la tarjeta de la persona (RUT válido, debe tener tarjeta), lo **persiste** en `tarjeta.codigo_qr` y lo devuelve en base64 (`{"codigo_qr": ...}`). |
 
 ### Tarjeta
 | Método | Ruta | Acceso | Descripción |
@@ -212,7 +205,7 @@ El `backTarjetaVecino.sql` crea la BD y carga: 2 personas, 1 tarjeta, 6 benefici
 | Método | Ruta | Acceso | Descripción |
 |---|---|---|---|
 | POST | `/beneficios/canjear` | Público | Canjea un beneficio (`?id_persona=&id_beneficio=`) |
-| GET | `/beneficios/historial/{id_persona}` | Público | Historial de canjes de una persona |
+| GET | `/beneficios/historial/{id_persona}` | Público | Historial de canjes de una persona (`404` si la persona no existe) |
 
 ### Auth
 | Método | Ruta | Acceso | Descripción |
@@ -224,6 +217,8 @@ El `backTarjetaVecino.sql` crea la BD y carga: 2 personas, 1 tarjeta, 6 benefici
 | Método | Ruta | Acceso | Descripción |
 |---|---|---|---|
 | GET | `/auditoria/` | Admin | Lista acciones registradas |
+
+> La auditoría se registra **dentro de la misma transacción** que cada operación de escritura (los servicios hacen `db.commit()` una sola vez). Cada alta/baja/actualización de personas, tarjetas, beneficios, usuarios del sistema, canjes y regeneración de QR deja una fila en `auditoria` con el usuario que la ejecutó (`publico` para el kiosco).
 
 ### Verificación de cédula (DEC)
 | Método | Ruta | Acceso | Descripción |
@@ -241,15 +236,15 @@ El `backTarjetaVecino.sql` crea la BD y carga: 2 personas, 1 tarjeta, 6 benefici
 3. Verifica `stock > 0` → si no: `400`.
 4. Verifica que la persona no haya canjeado ya ese beneficio → si ya lo hizo: `400`.
 5. Descuenta `stock -= 1` y registra un `historial_beneficios` con un código de canje único.
-6. `commit()`. Ante cualquier error: `rollback()`.
+6. Registra la auditoría y hace `commit()`. Ante cualquier error: `rollback()`.
 
-Así, el descuento de stock y el registro del canje ocurren **juntos o no ocurren**.
+Así, el descuento de stock, el registro del canje y su auditoría ocurren **juntos o no ocurren**.
 
 ---
 
 ## 9. Integración externa (DEC)
 
-`app/services/dec_services.py` consume `POST URL_API` (p. ej. `https://5dev.dec.cl/api/v1/auth/validate_vigencia`) con:
+`app/services/dec_services.py` consume `POST API_URL` (p. ej. `https://5dev.dec.cl/api/v1/auth/validate_vigencia`) con:
 
 * Header `X-API-KEY` con el token.
 * Body `{"user_rut": ..., "serial_number": ...}`.
@@ -257,7 +252,7 @@ Así, el descuento de stock y el registro del canje ocurren **juntos o no ocurre
 
 La respuesta se interpreta en `user_service.create_user` (exige `Verificacion == "V"`) y en `verificacion_router`.
 
-> **Nota sobre variables**: el código de `dec_services.py` lee `URL_API` y `DEC_API_KEY` desde el entorno. Con Docker, `docker-compose.yml` hace el mapeo desde `API_URL`/`API_TOKEN` del `.env`. En ejecución **local sin Docker**, el `.env` debe definir `URL_API` y `DEC_API_KEY` directamente.
+> **Nota sobre variables**: el código de `dec_services.py` lee `API_URL` y `API_TOKEN` desde `settings` (`.env`). `docker-compose.yml` las mapea directamente (`API_URL: ${API_URL}`, `API_TOKEN: ${API_TOKEN}`). Si están vacías, la validación de cédula devuelve 503.
 
 ---
 
@@ -269,7 +264,7 @@ La respuesta se interpreta en `user_service.create_user` (exige `Verificacion ==
 | `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Credenciales de BD | Sí (compose tiene defaults `root`/`root123`/`backTarjetaVecino`) |
 | `SECRET_KEY` | Firma de tokens JWT | Sí |
 | `ALGORITHM` | Algoritmo JWT (`HS256`) | Sí (default) |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Minutos de expiración del token | Sí (default 60) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Minutos de expiración del token | Sí (default 30) |
 | `FERNET_KEY` | Clave de cifrado Fernet | Sí |
 | `API_URL` / `API_TOKEN` | Endpoint y API key del DEC | Solo si se usa validación de cédula |
 
@@ -294,5 +289,5 @@ Cambios principales aplicados en esta versión:
 * Se eliminó el uso directo de `mysql.connector`/`get_connection()`; ahora todo el acceso a datos usa **SQLAlchemy 2.0 ORM** (`SessionLocal`, modelos declarativos).
 * Los repositorios devuelven **objetos ORM**; los routers serializan con `response_model` (`app/models/schemas.py`), lo que evita filtrar `serial_number`.
 * El canje pasó a ser una **transacción atómica** dentro del repositorio.
-* Se unificó el hashing de contraseñas con `passlib` (`outh_repository`).
+* Se unificó el hashing de contraseñas con `passlib` (`usuario_repository`).
 * **Bugs corregidos**: eliminación/actualización de beneficios (SQL inválido), y recursión infinita en `tarjeta_service.get_tarjeta`/`update_tarjeta` (el nombre de la función del servicio opacaba al del repositorio).

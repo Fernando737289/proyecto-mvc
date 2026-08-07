@@ -1,41 +1,52 @@
-import os
+import logging
+
 import httpx
 from fastapi import HTTPException, status
-from dotenv import load_dotenv
 
-load_dotenv()
+from app.core.config import settings
 
-URL_DEC = os.getenv("URL_API")
-DEC_API_KEY = os.getenv("DEC_API_KEY")
+logger = logging.getLogger(__name__)
 
-async def validar_vigencia_rut(user_rut: str, serial_number: str, api_key: str = None) -> dict:
+API_URL = settings.API_URL
+API_TOKEN = settings.API_TOKEN
+
+
+async def validar_vigencia_rut(user_rut: str, serial_number: str, api_key: str | None = None) -> dict:
     headers = {
         "Content-Type": "application/json",
-        "X-API-KEY": api_key if api_key is not None else DEC_API_KEY
+        "X-API-KEY": api_key if api_key is not None else API_TOKEN
     }
-    
+
     payload = {
         "user_rut": user_rut,
         "serial_number": serial_number
     }
-    
+
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.post(URL_DEC, headers=headers, json=payload, timeout=10.0)
-            
+            response = await client.post(API_URL, headers=headers, json=payload, timeout=10.0)
+
             response.raise_for_status()
-            
+
             return response.json()
-            
+
         except httpx.HTTPStatusError as e:
-            
-            raise HTTPException(
-                status_code=e.response.status_code,
-                detail=f"Error en el servicio externo de validación: {e.response.text}"
+
+            logger.error(
+                "El servicio externo de validación respondió con estado %s: %s",
+                e.response.status_code,
+                e.response.text
             )
-        except httpx.RequestError:
-            
+
             raise HTTPException(
-                status_code=status.HTTP_500_SERVICE_UNAVAILABLE,
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="El servicio externo de validación no pudo completar la solicitud."
+            )
+        except httpx.HTTPError:
+
+            logger.exception("El servicio externo de validación no está disponible")
+
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="El servicio externo de validación no se encuentra disponible temporalmente."
             )

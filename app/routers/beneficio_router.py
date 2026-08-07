@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
-from app.models.beneficio_model import Beneficio
-from app.models.schemas import BeneficioOut
+from app.core.database import get_db
+from app.models.schemas import BeneficioCreate, BeneficioOut
 from app.services.beneficio_service import (
     create_beneficio,
     list_beneficios,
@@ -17,31 +18,34 @@ router = APIRouter(
 
 @router.post("/crear")
 def crear_beneficio(
-    data: Beneficio,
-    admin = Depends(require_admin)
+    data: BeneficioCreate,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin)
 ):
 
-    return create_beneficio(data)
+    return create_beneficio(db, data, admin["sub"])
 
 @router.get("/", response_model=list[BeneficioOut])
-def obtener_beneficios():
+def obtener_beneficios(db: Session = Depends(get_db)):
 
-    return list_beneficios()
+    return list_beneficios(db)
 
 @router.put("/actualizar/{id_beneficio}")
 def actualizar_beneficio(
-    id_beneficio: int, 
-    data: Beneficio,
-    admin = Depends(require_admin)
+    id_beneficio: int,
+    data: BeneficioCreate,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin)
 ):
 
-    return update_beneficio(id_beneficio, data)
+    return update_beneficio(db, id_beneficio, data, admin["sub"])
 
 
 @router.delete("/eliminar/{id_beneficio}")
 def eliminar_beneficio(
     id_beneficio: int,
-    admin = Depends(require_admin)
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin)
 ):
 
-    return delete_beneficio(id_beneficio)
+    return delete_beneficio(db, id_beneficio, admin["sub"])
